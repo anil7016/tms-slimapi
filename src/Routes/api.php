@@ -9,7 +9,7 @@ use Slim\Routing\RouteCollectorProxy;
 use App\Middleware\AuthMiddleware;
 use App\Controllers\UserController;
 
-$secretKey = 'TMS'; // Define secret key outside the route group
+$secretKey = 'TMS'; 
 
 return function (App $app) use ($secretKey) { // Pass $secretKey into the closure using `use`
 

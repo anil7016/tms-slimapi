@@ -2,6 +2,8 @@
 
 namespace App\Controllers;
 
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use App\Utils\JsonResponse;
@@ -113,8 +115,6 @@ class UserController
     public function getUserByField(Request $request, Response $response, $args): Response
     {
         $user_id = $args['id']; // Get the user ID from the route parameter
-        print_r($user_id);
-        exit;
         $field_name = isset($args['field_name']) ? $args['field_name'] : ""; // Get the field names (comma separated)
 
         $this->_db->where('iUserId', $user_id);
@@ -721,6 +721,73 @@ class UserController
     }
 
     public function authenticate(Request $request, Response $response, $args): Response
+    {
+        $bodyContent = $request->getBody()->getContents();
+        $data = json_decode($bodyContent, true);
+
+        $username = $data["email"];
+        $password = md5($data["password"]);
+
+        $this->_db->where("vEmailAddress", $username);
+        $this->_db->where("vPassword", $password);
+        $user = $this->_db->getOne('tms_users');
+
+        if ($user && count($user) > 0) {
+            if ($user['eUserStatus'] == 4) {
+                $response->getBody()->write(json_encode([
+                    'status' => 401,
+                    'message' => 'Inactive account. Please contact the administrator.'
+                ]));
+                return $response->withStatus(401)->withHeader('Content-Type', 'application/json');
+            }
+
+            if ($user['activation_status'] == 0) {
+                $response->getBody()->write(json_encode([
+                    'status' => 401,
+                    'message' => 'Your account is not activated. Please activate your account.'
+                ]));
+                return $response->withStatus(401)->withHeader('Content-Type', 'application/json');
+            }
+
+            // Generate JWT Token
+            $secretKey = 'TMS'; // Replace with a secure key
+            $issuedAt = time();
+            $expirationTime = $issuedAt + (3600*4); // Token valid for 1 hour
+            $payload = [
+                'iss' => "http://localhost:8080", // Issuer
+                'iat' => $issuedAt,        // Issued at
+                'exp' => $expirationTime,  // Expiration time
+                'sub' => $user['iUserId'], // Subject (user ID)
+                'data' => [
+                    'id' => $user['iUserId'],
+                    'email' => $user['vEmailAddress'],
+                    'name' => $user['vUserName']
+                ]
+            ];
+
+            $jwt = JWT::encode($payload, $secretKey, 'HS256');
+
+            $response->getBody()->write(json_encode([
+                'status' => 200,
+                'message' => 'Successfully logged in.',
+                'token' => $jwt,
+                'user_data' => [
+                    'id' => $user['iUserId'],
+                    'email' => $user['vEmailAddress'],
+                    'name' => $user['vUserName']
+                ]
+            ]));
+            return $response->withHeader('Content-Type', 'application/json');
+        } else {
+            $response->getBody()->write(json_encode([
+                'status' => 422,
+                'message' => 'Invalid Username or Password.'
+            ]));
+            return $response->withStatus(422)->withHeader('Content-Type', 'application/json');
+        }
+    }
+
+    public function authenticate__(Request $request, Response $response, $args): Response
     {
         $bodyContent = $request->getBody()->getContents();
         //$data = json_decode($request->getBody()->getContents(), true);

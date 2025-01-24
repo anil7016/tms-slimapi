@@ -9,6 +9,12 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use App\Utils\JsonResponse;
 use App\Models\dbHelper;
 
+//require_once __DIR__ . 'customhelper.php';
+require_once __DIR__ . '/UserstatusController.php';
+//use App\Controllers\UserStatus;
+
+
+
 class UserController
 {
     private $db;
@@ -45,12 +51,12 @@ class UserController
         return $results = $this->_db->getOne('tms_users');
     }
 
-    public function getAlluserGroup()
+    public function getAlluserGroup(Request $request, Response $response, $args): Response
     {
         $this->_db->where("iFkUserTypeId", 1);
         $this->_db->where('eUserStatus', 3); //new Added after Set Inactive in users
         $data = $this->_db->get('tms_users');
-        return $data;
+        return JsonResponse::respondSingle($response, $data);
     }
 
     public function getUserAllfile($field, $id)
@@ -86,6 +92,20 @@ class UserController
     }
 
     public function getUserDataById(Request $request, Response $response, $args): Response
+    {
+        $user_id = $args['id'];
+        //$this->_db->where('iUserId',$id);
+        //$userData = $this->_db->getOne('tms_users');
+
+        $this->_db->where('iUserId', $id);
+        $this->_db->join('tms_tax tx', 'tx.tax_id = tp.tax_rate', 'LEFT');
+        $userPaymentData = $this->_db->getOne('tms_payment tp', 'tp.*, tx.tax_percentage');
+
+        //$result['userData'] = $userData;
+        $result['userPaymentData'] = $userPaymentData;
+        return JsonResponse::respondSingle($response, $result);
+    }
+    public function getSingleUserById(Request $request, Response $response, $args): Response
     {
         $user_id = $args['id'];
         $field_name = isset($args['field_name']) ? $args['field_name'] : "";
@@ -165,7 +185,23 @@ class UserController
         }
     }
 
-    public function userlist()
+    public function userlist(Request $request, Response $response, $args): Response
+    {
+        //$userstatus = new userstatus();
+        $userstatus = new UserstatusController();
+
+        $this->_db->where('eUserStatus', 3);
+        $data = $this->_db->get('tms_users');
+        foreach ($data as $key => $value) {
+            $status = $userstatus->getTypeById($value['eUserStatus']);
+            $data[$key]['is_active'] = $status['status_name'];
+        }
+
+        $result['data'] = $data;
+        $result['status'] = 200;
+        return JsonResponse::respondSingle($response, $result);
+    }
+    public function userlist__(Request $request, Response $response, $args): Response
     {
         $userstatus = new userstatus();
         $this->_db->where('eUserStatus', 3);
@@ -177,30 +213,34 @@ class UserController
 
         $result['data'] = $data;
         $result['status'] = 200;
-        return $result;
+        return JsonResponse::respondSingle($response, $result);
     }
 
-    public function clientlistindirectGet($id)
+    public function clientlistindirectGet(Request $request, Response $response, $args): Response
     {
+        $id = $args['id'];
         $this->_db->where('iFkUserTypeId', $id);
         $data = $this->_db->get('tms_users');
         $result['data'] = $data;
         $result['status'] = 200;
-        return $result;
+        return JsonResponse::respondSingle($response, $result);
     }
 
-    public function userExternalGet($id)
+    public function userExternalGet(Request $request, Response $response, $args): Response
     {
+        $id = $args['id'];
         $this->_db->where('iFkUserTypeId', $id);
         $this->_db->where('eUserStatus', 3); //new Added after Set Inactive in users
         $data = $this->_db->get('tms_users');
         $result['data'] = $data;
         $result['status'] = 200;
-        return $result;
+        return JsonResponse::respondSingle($response, $result);
     }
 
-    public function userwithType($type)
+    public function userwithType(Request $request, Response $response, $args): Response
     {
+        $type = $args['type'];
+
         //$this->_db->where('iFkUserTypeId', $type);
         //$data = $this->_db->get(TBL_USERS);
         /*$data = $this->_db->rawQuery("SELECT tu.*,tut.vType FROM tms_users As tu INNER JOIN tms_user_type As tut on tu.vResourceType = tut.iTypeId WHERE iFkUserTypeId = $type");*/
@@ -215,11 +255,13 @@ class UserController
 
         $result['data'] = $data;
         $result['status'] = 200;
-        return $result;
+        //return $result;
+        return JsonResponse::respondSingle($response, $result);
     }
 
-    public function userQaSpecialist($type)
+    public function userQaSpecialist(Request $request, Response $response, $args): Response
     {
+        $type = $args['type'];
         //$this->_db->where('vResourcePosition', $type);
         $this->_db->where('FIND_IN_SET(' . $type . ',vResourcePosition)');
         $this->_db->where('eUserStatus', 3); //new Added after Set Inactive in users
@@ -229,11 +271,13 @@ class UserController
 
         $result['data'] = $data;
         $result['status'] = 200;
-        return $result;
+        return JsonResponse::respondSingle($response, $result);
     }
 
-    public function userManager($type)
+    public function userManager(Request $request, Response $response, $args): Response
     {
+        $type = $args['type'];
+
         $this->_db->where('FIND_IN_SET(' . $type . ',vResourcePosition)');
         $this->_db->where('eUserStatus', 3); //new Added after Set Inactive in users
         $this->_db->where('activation_status', 1);
@@ -242,11 +286,13 @@ class UserController
 
         $result['data'] = $data;
         $result['status'] = 200;
-        return $result;
+        return JsonResponse::respondSingle($response, $result);
     }
 
-    public function userCoordinator($type)
+    public function userCoordinator(Request $request, Response $response, $args): Response
     {
+        $type = $args['type'];
+
         // $this->_db->where('vResourcePosition', $type);
         $this->_db->where('FIND_IN_SET(' . $type . ',vResourcePosition)');
         $this->_db->where('eUserStatus', 3); //new Added after Set Inactive in users
@@ -256,7 +302,7 @@ class UserController
 
         $result['data'] = $data;
         $result['status'] = 200;
-        return $result;
+        return JsonResponse::respondSingle($response, $result);
     }
 
     // done
@@ -285,7 +331,7 @@ class UserController
         if ($data['id'] != 0)
             $this->_db->where("iUserId", $data['id']);
         $this->_db->where("vUserName", $data['username']);
-        $results = $this->_db->getOne(TBL_USERS);
+        $results = $this->_db->getOne('tms_users');
 
         if ($results) {
             $return['userExist'] = 1;
@@ -318,8 +364,11 @@ class UserController
         }
     }
 
-    public function saveuserprofile($user)
+    public function saveuserprofile(Request $request, Response $response, $args): Response
     { //For Internal Resource Profile
+        $bodyContent = $request->getBody()->getContents();
+        $user = json_decode($bodyContent, true);
+
         $activationToken = sha1(mt_rand(10000, 99999) . time());
         $emailPassToSend = $user['vPassword'];
         $user['activation_token'] = $activationToken;
@@ -387,11 +436,18 @@ class UserController
                 $return['msg'] = 'Not inserted.';
             }
         }
-        return $return;
+
+        return JsonResponse::respondSingle($response, $return);
     }
 
-    public function saveuserprofileexternelS($user)
+    public function saveuserprofileexternelS(Request $request, Response $response, $args): Response
     {
+        $id = $args['id'];
+
+        $bodyContent = $request->getBody()->getContents();
+        $user = json_decode($bodyContent, true);
+
+
         $activationToken = sha1(mt_rand(10000, 99999) . time());
         $emailPassToSend = $user['vPassword'];
         $user['activation_token'] = $activationToken;
@@ -472,11 +528,17 @@ class UserController
                 $return['msg'] = 'Not inserted.';
             }
         }
-        return $return;
+        //return $return;
+        return JsonResponse::respondSingle($response, $return);
     }
 
-    public function saveuserprofileinternalupdate($id, $user)
+    public function saveuserprofileinternalupdate(Request $request, Response $response, $args): Response
     {
+        $id = $args['id'];
+
+        $bodyContent = $request->getBody()->getContents();
+        $user = json_decode($bodyContent, true);
+
         $email = $user['vEmailAddress'];
         $vUserName = $user['vUserName'];
         $uId = $user['iUserId'];
@@ -555,11 +617,15 @@ class UserController
                 $return['msg'] = 'Not Updated.';
             }
         }
-        return $return;
+        return JsonResponse::respondSingle($response, $return);
     }
 
-    public function saveuserprofileexternelupdate($id, $user)
+    public function saveuserprofileexternelupdate(Request $request, Response $response, $args): Response
     {
+        $id = $args['id'];
+        $bodyContent = $request->getBody()->getContents();
+        $user = json_decode($bodyContent, true);
+
         $email = self::getUserAllfile('vEmailAddress', $user['vEmailAddress']);
         $uId = $user['iUserId'];
         $emailid = $user['vEmailAddress'];
@@ -609,7 +675,8 @@ class UserController
                 $return['msg'] = 'Not Updated.';
             }
         }
-        return $return;
+
+        return JsonResponse::respondSingle($response, $return);
     }
 
     public function uploadimage($data)
@@ -749,10 +816,12 @@ class UserController
                 return $response->withStatus(401)->withHeader('Content-Type', 'application/json');
             }
 
+            unset($user['org_pass']);
+
             // Generate JWT Token
             $secretKey = 'TMS'; // Replace with a secure key
             $issuedAt = time();
-            $expirationTime = $issuedAt + (3600*4); // Token valid for 1 hour
+            $expirationTime = $issuedAt + (3600 * 4); // Token valid for 1 hour
             $payload = [
                 'iss' => "http://localhost:8080", // Issuer
                 'iat' => $issuedAt,        // Issued at
@@ -771,6 +840,7 @@ class UserController
                 'status' => 200,
                 'message' => 'Successfully logged in.',
                 'token' => $jwt,
+                'session_data' => $user,
                 'user_data' => [
                     'id' => $user['iUserId'],
                     'email' => $user['vEmailAddress'],
@@ -785,98 +855,6 @@ class UserController
             ]));
             return $response->withStatus(422)->withHeader('Content-Type', 'application/json');
         }
-    }
-
-    public function authenticate__(Request $request, Response $response, $args): Response
-    {
-        $bodyContent = $request->getBody()->getContents();
-        //$data = json_decode($request->getBody()->getContents(), true);
-        $data = json_decode($bodyContent, true);
-        //print_r($data);
-        $username = $data["email"];
-        $password = md5($data["password"]);
-
-        $this->_db->where("vEmailAddress", $username);
-        $this->_db->where("vPassword", $password);
-        $user = $this->_db->getOne('tms_users');
-
-        if ($user && count($user) > 0) {
-            if ($user['eUserStatus'] == 4) {
-                $response->getBody()->write(json_encode([
-                    'status' => 401,
-                    'message' => 'Inactive account. Please contact the administrator.'
-                ]));
-                return $response->withStatus(401)->withHeader('Content-Type', 'application/json');
-            }
-
-            if ($user['activation_status'] == 0) {
-                $response->getBody()->write(json_encode([
-                    'status' => 401,
-                    'message' => 'Your account is not activated. Please activate your account.'
-                ]));
-                return $response->withStatus(401)->withHeader('Content-Type', 'application/json');
-            }
-
-            // Generate JWT Token
-            $issuedAt = time();
-            $expirationTime = $issuedAt + 3600; // Token valid for 1 hour
-            $payload = [
-                'iss' => "yourdomain.com", // Issuer
-                'iat' => $issuedAt,        // Issued at
-                'exp' => $expirationTime,  // Expiration time
-                'sub' => $user['iUserId'], // Subject (user ID)
-                'data' => [
-                    'id' => $user['iUserId'],
-                    'email' => $user['vEmailAddress'],
-                    'name' => $user['vUserName']
-                ]
-            ];
-
-            $response->getBody()->write(json_encode([
-                'status' => 200,
-                'message' => 'Successfully logged in.',
-                'Authorization' => $user['vPassword'],
-                'user_data' => $user
-            ]));
-            return $response->withHeader('Content-Type', 'application/json');
-        } else {
-            $response->getBody()->write(json_encode([
-                'status' => 422,
-                'message' => 'Invalid Username or Password.'
-            ]));
-            return $response->withStatus(422)->withHeader('Content-Type', 'application/json');
-        }
-    }
-    public function authenticate___($user)
-    {
-        $username = $user["email"];
-        $password = md5($user["password"]);
-        $this->_db->where("vEmailAddress", $username);
-        $this->_db->where('vPassword', $password);
-        $results = $this->_db->getOne('tms_users');
-
-        // checking whether any match found or not
-        if ($this->_db->count > 0) {
-            if ($results['eUserStatus'] == 4) {
-                $return['status'] = 401;
-                $return['msg'] = 'Inactivate account please contact administrator.';
-            } else if ($results['activation_status'] == 0) {
-                $return['status'] = 401;
-                $return['msg'] = 'Your account is not activated.Please activate your account.';
-            } else {
-                $_SESSION['is_login'] = 'yes';
-                $_SESSION['user_data'] = $results;
-                unset($_SESSION['sessionX']);
-                unset($results['org_pass']);
-                $return['status'] = 200;
-                $return['msg'] = 'Successfully Login.';
-                $return['session_data'] = $results;
-            }
-        } else {
-            $return['status'] = 422;
-            $return['msg'] = 'Invalid User Name OR Password.';
-        }
-        return $return;
     }
 
     public function resetPassword($user)
@@ -959,8 +937,11 @@ class UserController
         return $return;
     }
 
-    public function resetPassword1($data)
+    public function resetPassword1___(Request $request, Response $response, $args): Response
     {
+        $bodyContent = $request->getBody()->getContents();
+        $data = json_decode($bodyContent, true);
+
         $vPassword = md5($data['newPassword']);
         $org_pass = $data['newPassword'];
 
@@ -975,17 +956,13 @@ class UserController
                 $this->_db->where('iUserId', $found['iUserId']);
                 $this->_db->update('tms_passwordreset_tbl', array("reset_password_token" => ''));
 
-                $return['status'] = 200;
-                $return['msg'] = 'password reseted successfully.';
+                return JsonResponse::respond($response, null, 200, 'Password reseted successfully.');
             } else {
-                $return['status'] = 401;
-                $return['msg'] = 'unable to reset password please try later.';
+                return JsonResponse::respond($response, null, 401, 'unable to reset password please try later.');
             }
         } else {
-            $return['status'] = 404;
-            $return['msg'] = 'resetpassword token not available.please enter you email.';
+            return JsonResponse::respond($response, null, 404, 'resetpassword token not available.please enter you email.');
         }
-        return $return;
     }
 
     public function updateprofile($id, $user)
@@ -1015,8 +992,11 @@ class UserController
     }
 
 
-    public function deleteUser($id, $image)
+    public function deleteUser(Request $request, Response $response, $args): Response
     {
+        $id = $args['id'];
+        $image = $args['image'];
+
         $path = "../../uploads/profilePic/";
         if ($image != '' || $image == 'blank.png') {
             $images = glob($path . $image);
@@ -1037,7 +1017,7 @@ class UserController
         $this->_db->delete('tms_filemanager');
 
         $this->_db->where('iUserId', $id);
-        $id = $this->_db->delete(TBL_USERS);
+        $id = $this->_db->delete('tms_users');
 
         if ($id) {
             $return['status'] = 200;
@@ -1046,7 +1026,7 @@ class UserController
             $return['status'] = 422;
             $return['msg'] = 'Not Deleted.';
         }
-        return $return;
+        return JsonResponse::respondSingle($response, $return);
     }
 
     public function internalResourceCheck($info)
@@ -1078,17 +1058,21 @@ class UserController
         return $ret;
     }
 
-    public function userUpdate_Byid($id)
+    public function userUpdate_Byid(Request $request, Response $response, $args): Response
     {
+        $id = $args['id'];
+
         $this->_db->where('iEditedBy', $id);
         $this->_db->update('tms_users', array('iEditedBy' => '0'));
         $result['status'] = 200;
         $msg = 'Ok';
-        return $result;
+        //return $result;
+        return JsonResponse::respondSingle($response, $result);
     }
 
-    public function messageUserOneget($id)
+    public function messageUserOneget(Request $request, Response $response, $args): Response
     {
+        $id = $args['id'];
         $this->_db->where('iUserId', $id);
         $data = $this->_db->getone('tms_users');
         if ($data) {
@@ -1098,7 +1082,7 @@ class UserController
         $result['data'] = $data;
         $result['info'] = $info;
         $result['status'] = 200;
-        return $result;
+        return JsonResponse::respondSingle($response, $result);
     }
 
     public function AddressTypeget()
@@ -1107,8 +1091,9 @@ class UserController
         return $data;
     }
 
-    public function viewExternalget($id)
+    public function viewExternalget(Request $request, Response $response, $args): Response
     {
+        $id = $args['id'];
 
         $data = self::getUserAllfile('iUserId', $id);
         if (isset($data['vResourceType'])) {
@@ -1138,7 +1123,8 @@ class UserController
             $modified = self::getUserAllfile('iUserId', $data['modified_by']);
             $data['modifiedBy'] = isset($modified['vUserName']) ? $modified['vUserName'] : '';
         }
-        return $data;
+        //return $data;
+        return JsonResponse::respondSingle($response, $data);
     }
 
     public function currencyConverts($data)
@@ -1160,8 +1146,9 @@ class UserController
     }
 
     //city wise time zone get
-    public function cityTimeZoneget($id)
+    public function cityTimeZoneget(Request $request, Response $response, $args): Response
     {
+        $id = $args['id'];
         //$id = 'China';
         $location = urlencode($id);
         $geoapiKey = '34b84344790146fe81584b20f1376807';
@@ -1191,7 +1178,7 @@ class UserController
         date_default_timezone_set($data->timezone);
         $info['timeZone'] = "(GMT " . $hours . '.' . $minutes . ') ' . $data->timezone;
         $info['timeZoneCity'] = $id;
-        return $info;
+        return JsonResponse::respondSingle($response, $info);
     }
     // city vise info old api
     public function cityTimeZoneget_oldAPI($id)
@@ -1247,8 +1234,12 @@ class UserController
         $info['timeZoneCity'] = $id;
         return $info;
     }
-    public function getTimeZoneByLatLong($data)
+    public function getTimeZoneByLatLong(Request $request, Response $response, $args): Response
     {
+        //$id = $args['id'];
+        $bodyContent = $request->getBody()->getContents();
+        $data = json_decode($bodyContent, true);
+
         $ApiKeys = [
             'AIzaSyDEnCDLGH8q4uDmLSROcNcqKQNYQKfwLYM',
             'AIzaSyDB7UY5kOPPgonOM4TAw46fdxFKcze6a6g',
@@ -1289,11 +1280,13 @@ class UserController
         date_default_timezone_set($response->timeZoneId);
         $info['timeZone'] = "(GMT " . $hours . '.' . $minutes . ') ' . $response->timeZoneName;
         //$info['timeZoneCity'] = $id;
-        return $info;
+        return JsonResponse::respondSingle($response, $info);
     }
 
-    public function userProfileNumberGet($id)
+    public function userProfileNumberGet(Request $request, Response $response, $args): Response
     {
+        $id = $args['id'];
+
         $this->_db->where('iFkUserTypeId', $id);
         $this->_db->where('iResourceNumber', '', '!=');
         $this->_db->orderBy("iUserId", "Desc");
@@ -1303,7 +1296,7 @@ class UserController
         } else {
             $return = 1;
         }
-        return $return;
+        return JsonResponse::respondSingle($response, $return);
     }
 
     public function getUserById($id)
@@ -1541,8 +1534,10 @@ class UserController
         return $results = $this->_db->get('tms_specialization');
     }
 
-    public function sendAcountActivationlink($user)
+    public function sendAcountActivationlink(Request $request, Response $response, $args): Response
     {
+        $bodyContent = $request->getBody()->getContents();
+        $user = json_decode($bodyContent, true);
         //Sending registation email to users email address
         //$userName = $user['vUserName'];
         $userName = isset($user['vFirstName']) ? $user['vFirstName'] : '';
@@ -1573,9 +1568,9 @@ class UserController
             $return['status'] = 401;
             $return['msg'] = 'Could not send mail!';
         }
-        return $return;
+        //return $return;
+        return JsonResponse::respondSingle($response, $return);
     }
-
     // Linguist Profile Import csv
     public function savelinguistCsvProfile($userData)
     {
@@ -1736,8 +1731,13 @@ class UserController
         return $return;
     }
 
-    public function saveuserProfileSignUp($user)
+    public function saveuserProfileSignUp(Request $request, Response $response, $args): Response
     {
+
+        $bodyContent = $request->getBody()->getContents();
+        $user = json_decode($bodyContent, true);
+
+        //$user;
         $activationToken = sha1(mt_rand(10000, 99999) . time());
         $emailPassToSend = $user['vPassword'];
         $user['activation_token'] = $activationToken;
@@ -1819,7 +1819,7 @@ class UserController
                 $return['msg'] = 'Not inserted.';
             }
         }
-        return $return;
+        return JsonResponse::respondSingle($response, $return);
     }
 
     // Sidebar menu structure tree view
@@ -1839,7 +1839,7 @@ class UserController
         return $branch;
     }
 
-    public function getTreeMenu()
+    public function getTreeMenu(Request $request, Response $response, $args): Response
     {
         $dataArr = $this->_db->get('tms_tree_menu');
         $data = $this->_db->get('tms_tree_menu');
@@ -1857,13 +1857,18 @@ class UserController
         //print_r($data);
         //exit;
         //return $data;
-        $payload = json_encode($data, JSON_PRETTY_PRINT);
-        $response->getBody()->write($payload);
-        return $response->withHeader('Content-Type', 'application/json');
+        // $payload = json_encode($data, JSON_PRETTY_PRINT);
+        // $response->getBody()->write($payload);
+        // return $response->withHeader('Content-Type', 'application/json');
+        return JsonResponse::respondSingle($response, $data);
     }
 
-    public function updateAbscentDate($id, $user)
+    public function updateAbscentDate(Request $request, Response $response, $args): Response
     {
+        $id = $args['id'];
+        $bodyContent = $request->getBody()->getContents();
+        $user = json_decode($bodyContent, true);
+
         $user['dtUpdatedDate'] = date('Y-m-d H:i:s');
         $this->_db->where('iUserId', $id);
         if ($this->_db->update('tms_users', $user)) {
@@ -1874,11 +1879,14 @@ class UserController
             $return['msg'] = 'Not Updated.';
         }
 
-        return $return;
+        return JsonResponse::respondSingle($response, $return);
     }
 
-    public function changepassword($user)
+    public function resetPassword1(Request $request, Response $response, $args): Response
     {
+        $bodyContent = $request->getBody()->getContents();
+        $user = json_decode($bodyContent, true);
+
         $userId = $user["userId"];
         $this->_db->where("iUserId", $userId);
         $results = $this->_db->getOne(TBL_USERS);
@@ -1910,10 +1918,11 @@ class UserController
             $return['match'] = false;
             $return['msg'] = 'You are not Registered in System';
         }
-        return $return;
+        //return $return;
+        return JsonResponse::respondSingle($response, $return);
     }
 
-    public function getAllsentEmail()
+    public function getAllsentEmail(Request $request, Response $response, $args): Response
     {
 
         $send_fn = new functions();
@@ -1927,11 +1936,14 @@ class UserController
             $return['msg'] = 'Not Updated.';
         }
 
-        return $return;
+       return JsonResponse::respondSingle($response, $return);
     }
 
-    public function getMultipleReourse($data)
+    public function getMultipleReourse(Request $request, Response $response, $args): Response
     {
+        $bodyContent = $request->getBody()->getContents();
+        $data = json_decode($bodyContent, true);
+
         $array = $data['resourceIds'];
         //$resIds = implode(", ", $data['resourceIds']);
         // $this->_db->where('eUserStatus',3);
@@ -1942,17 +1954,21 @@ class UserController
         //echo $this->_db->getLastQuery();
         $result['data'] = $data;
         $result['status'] = 200;
-        return $result;
+        return JsonResponse::respondSingle($response, $result);
     }
 
-    public function updateUserTabsortorder($id, $data)
+    public function updateUserTabsortorder(Request $request, Response $response, $args): Response
     {
+        $id = $args['id'];
+        $bodyContent = $request->getBody()->getContents();
+        $data = json_decode($bodyContent, true);
+
         $postData = [];
         $postData['tab_sortedorder'] = $data->tab_sortedorder;
         $this->_db->where('iUserId ', $id);
         $this->_db->update('tms_users', $postData);
         $result['status'] = 200;
-        return $result;
+        return JsonResponse::respondSingle($response, $result);
     }
 
     // user dashboard tabs permission
